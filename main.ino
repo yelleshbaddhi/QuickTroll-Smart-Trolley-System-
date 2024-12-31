@@ -15,8 +15,8 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 MFRC522::MIFARE_Key key;
 
 // WiFi credentials
-const char* ssid = "Kossn-Lab-2";
-const char* password = "L12345678";
+const char* ssid = "dsiot";
+const char* password = "IoT@2468";
 
 ESP8266WebServer server(80);
 WebSocketsServer webSocket(81);
@@ -35,7 +35,7 @@ std::vector<Product> products = {
   {"24550D04", "Oil", 20.00, "https://i.imgur.com/ijfSykj.jpg"},
   {"2046E959", "Books", 30.00, "https://i.imgur.com/PS43M6v.jpg"},
   {"6007DD14", "Apple", 30.00, "https://i.imgur.com/WZk8YiT.jpg"},
-  // Add more products here as needed
+  // Add more products here as needed 
 };
 
 // Keep track of quantities dynamically
@@ -45,9 +45,6 @@ std::vector<int> quantities(products.size(), 0);
 int mode = 0;
 
 String billDetails;
-String lastScannedUID = "";
-unsigned long lastScanTime = 0;
-const unsigned long debounceDelay = 500; // Debounce delay in milliseconds
 
 void setup() {
   Serial.begin(115200);
@@ -97,17 +94,6 @@ void loop() {
       tag.toUpperCase();
       Serial.print("Scanned UID: ");
       Serial.println(tag);
-
-      // Debounce the RFID read
-      unsigned long currentTime = millis();
-      if (tag == lastScannedUID && (currentTime - lastScanTime) < debounceDelay) {
-        Serial.println("Debounce: Ignoring duplicate scan");
-        rfid.PICC_HaltA();
-        rfid.PCD_StopCrypto1();
-        return;
-      }
-      lastScannedUID = tag;
-      lastScanTime = currentTime;
 
       bool productFound = false;
       for (size_t i = 0; i < products.size(); i++) {
