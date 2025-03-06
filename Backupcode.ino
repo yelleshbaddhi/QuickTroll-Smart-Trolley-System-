@@ -43,23 +43,36 @@ std::vector<int> quantities(products.size(), 0);
 
 // Mode: 0 for adding, 1 for removing
 int mode = 0;
-
 String billDetails;
+
+// LED pins for WiFi indications
+constexpr uint8_t RED_LED_PIN = D0;
+constexpr uint8_t GREEN_LED_PIN = D1;
 
 void setup() {
   Serial.begin(115200);
   SPI.begin();
   mfrc522.PCD_Init();
 
+  // Initialize LED pins
+  pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(GREEN_LED_PIN, OUTPUT);
+
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.println("Connecting to WiFi...");
+    digitalWrite(RED_LED_PIN, HIGH); // Turn on red LED while connecting
+    digitalWrite(GREEN_LED_PIN, LOW); // Turn off green LED while connecting
   }
   Serial.println("Connected to WiFi");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+
+  // Turn off red LED and turn on green LED when connected
+  digitalWrite(RED_LED_PIN, LOW);
+  digitalWrite(GREEN_LED_PIN, HIGH);
 
   // Set up web server routes
   server.on("/", handleRoot);
@@ -99,12 +112,12 @@ void loop() {
       if (tag == products[i].uid) {
         if (mode == 0) {
           quantities[i]++;
-          Serial.printf("Added: %s - Price: \$%.2f - Quantity: %d\n",
+          Serial.printf("Added: %s - Price: ₹%.2f - Quantity: %d\n",
                         products[i].name.c_str(), products[i].price, quantities[i]);
         } else {
           if (quantities[i] > 0) {
             quantities[i]--;
-            Serial.printf("Removed: %s - Price: \$%.2f - Quantity: %d\n",
+            Serial.printf("Removed: %s - Price: ₹%.2f - Quantity: %d\n",
                           products[i].name.c_str(), products[i].price, quantities[i]);
           }
         }
@@ -151,13 +164,12 @@ void handleRoot() {
   html += "    line-height: 1.6;";
   html += "}";
   html += ".container {";
-  html += "    width: 90%;";
-  html += "    max-width: 1200px;";
-  html += "    margin: 2rem auto;";
+  html += "    width: 95%;";
+  html += "    max-width: 1400px;";
+  html += "    margin: 1rem auto;";
   html += "    background-color: #fff;";
   html += "    padding: 1.5rem;";
   html += "    border-radius: 12px;";
-  html += "    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);";
   html += "    display: flex;";
   html += "    gap: 1.5rem;";
   html += "}";
@@ -242,10 +254,6 @@ void handleRoot() {
   html += "    height: 28px;";
   html += "    font-size: 0.9rem;";
   html += "    cursor: pointer;";
-  html += "    transition: background-color 0.3s;";
-  html += "}";
-  html += ".quantity-selector button:hover {";
-  html += "    background-color: var(--medium-gray);";
   html += "}";
   html += ".quantity-selector input {";
   html += "    width: 35px;";
@@ -308,23 +316,16 @@ void handleRoot() {
   html += "    cursor: pointer;";
   html += "    font-size: 0.9rem;";
   html += "    font-weight: 500;";
-  html += "    transition: background-color 0.3s;";
   html += "}";
   html += ".cart-summary .apply-code button {";
   html += "    background-color: var(--primary-color);";
   html += "    color: white;";
-  html += "}";
-  html += ".cart-summary .apply-code button:hover {";
-  html += "    background-color: #3a7bc8;";
   html += "}";
   html += ".cart-summary .checkout-btn {";
   html += "    background-color: var(--secondary-color);";
   html += "    color: white;";
   html += "    font-weight: 600;";
   html += "    margin-top: 1rem;";
-  html += "}";
-  html += ".cart-summary .checkout-btn:hover {";
-  html += "    background-color: #d1004a;";
   html += "}";
   html += ".total {";
   html += "    font-size: 1rem;";
@@ -342,11 +343,7 @@ void handleRoot() {
   html += "    cursor: pointer;";
   html += "    font-size: 0.9rem;";
   html += "    font-weight: 500;";
-  html += "    transition: background-color 0.3s;";
   html += "    margin-left: 1rem;";
-  html += "}";
-  html += ".remove-button:hover {";
-  html += "    background-color: #ff1a1a;";
   html += "}";
   html += "@media (max-width: 768px) {";
   html += "    .container {";
@@ -401,9 +398,6 @@ void handleRoot() {
   html += "        padding: 0;";
   html += "        font-size: 1.25rem;";
   html += "    }";
-  html += "    .remove-button:hover {";
-  html += "        color: #ff1a1a;";
-  html += "    }";
   html += "}";
   html += "</style>";
   html += "<title>QuickTroll</title></head><body>";
@@ -445,10 +439,10 @@ void handleRoot() {
   html += "<label for='phone'><strong>Phone Number:</strong></label>";
   html += "<input type='tel' id='phone' name='phone' placeholder='Enter your phone number' required>";
   html += "</div>";
-  html += "<p><strong>Subtotal:</strong> $<span id='subtotal'>0.00</span></p>";
-  html += "<p><strong>Shipping:</strong> $<span id='shipping'>0.00</span></p>";
-  html += "<p><strong>Tax:</strong> $<span id='tax'>0.00</span></p>";
-  html += "<p class='total'><strong>Total:</strong> $<span id='total'>0.00</span></p>";
+  html += "<p><strong>Subtotal:</strong> ₹<span id='subtotal'>0.00</span></p>";
+  html += "<p><strong>Shipping:</strong> ₹<span id='shipping'>0.00</span></p>";
+  html += "<p><strong>Tax:</strong> ₹<span id='tax'>0.00</span></p>";
+  html += "<p class='total'><strong>Total:</strong> ₹<span id='total'>0.00</span></p>";
   html += "<button class='btn btn-primary mb-3' onclick='continueShopping()'>Continue Shopping</button>";
   html += "<button id='proceedToCheckoutButton' class='checkout-btn' onclick='proceedToCheckout()'>Proceed to Checkout</button>";
   html += "</div>";
@@ -456,6 +450,9 @@ void handleRoot() {
   html += "<script src='https://code.jquery.com/jquery-3.6.1.min.js'></script>";
   html += "<script src='https://checkout.razorpay.com/v1/checkout.js'></script>";
   html += "<script type='text/javascript'>";
+  html += "function formatPrice(price) {";
+  html += "    return price.toString().replace(/(\\d)(?=(\\d{3})+(?!\\d))/g, '$1,');";
+  html += "}";
   html += "var socket = new WebSocket('ws://' + location.hostname + ':81/');";
   html += "socket.onmessage = function(event) { updateCartDetails(event.data); };";
   html += "function updateCartDetails(data) {";
@@ -471,24 +468,24 @@ void handleRoot() {
   html += "        <img src='${cart.products[i].imageUrl}' alt='${cart.products[i].name}'>";
   html += "        <div class='cart-item-details'>";
   html += "          <h2>\${cart.products[i].name}</h2>";
-  html += "          <p>Price: $${cart.products[i].price.toFixed(2)}</p>";
+  html += "          <p>Price: ₹${formatPrice(cart.products[i].price.toFixed(2))}</p>";
   html += "          <div class='quantity-selector'>";
   html += "            <button onclick='decrementProduct(${i})'><i class='fas fa-minus'></i></button>";
   html += "            <span>${quantity}</span>";
   html += "            <button onclick='incrementProduct(\${i})'><i class='fas fa-plus'></i></button>";
   html += "          </div>";
   html += "        </div>";
-  html += "        <p class='cart-item-price'>$${(quantity * cart.products[i].price).toFixed(2)}</p>";
+  html += "        <p class='cart-item-price'>₹${formatPrice((quantity * cart.products[i].price).toFixed(2))}</p>";
   html += "        <button class='remove-button' onclick='removeProduct(\${i})'><i class='fas fa-trash'></i></button>";
   html += "      `;";
   html += "      cartItemsDiv.appendChild(cartItemDiv);";
   html += "      totalPrice += quantity * cart.products[i].price;";
   html += "    }";
   html += "  });";
-  html += "  document.getElementById('subtotal').innerText = totalPrice.toFixed(2);";
+  html += "  document.getElementById('subtotal').innerText = formatPrice(totalPrice.toFixed(2));";
   html += "  document.getElementById('shipping').innerText = '0.00';";
-  html += "  document.getElementById('tax').innerText = (totalPrice * 0.18).toFixed(2);";
-  html += "  document.getElementById('total').innerText = (totalPrice * 1.18).toFixed(2);";
+  html += "  document.getElementById('tax').innerText = formatPrice((totalPrice * 0.18).toFixed(2));";
+  html += "  document.getElementById('total').innerText = formatPrice((totalPrice * 1.18).toFixed(2));";
   html += "  document.getElementById('cartItemCount').innerText = cart.quantities.reduce((a, b) => a + b, 0);";
   html += "  if (totalPrice > 0) {";
   html += "    document.getElementById('proceedToCheckoutButton').style.display = 'block';";
@@ -516,7 +513,7 @@ void handleRoot() {
   html += "  }";
   html += "}";
   html += "function pay_now(name, email, phone){";
-  html += "  var amount = parseFloat(document.getElementById('total').innerText);";
+  html += "  var amount = parseFloat(document.getElementById('total').innerText.replace(/,/g, ''));";
   html += "  var options = {";
   html += "    'key': 'rzp_test_dhYJFlohg88eyl',";
   html += "    'amount': amount * 100,";
@@ -558,7 +555,6 @@ void handleRoot() {
   html += "}";
   html += "</script>";
   html += "</body></html>";
-
   server.send(200, "text/html", html);
 }
 
@@ -630,7 +626,7 @@ void handleIncrement() {
     sendWebSocketUpdate();
     server.send(200, "application/json", "{\"status\":\"success\"}");
   } else {
-    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid index\"}");
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
   }
 }
 
@@ -734,42 +730,40 @@ void handleBill() {
   html += "<style>";
   html += "* { box-sizing: border-box; margin: 0; padding: 0; }";
   html += "body { font-family: 'Poppins', sans-serif; font-size: 14px; color: #333; background-color: #f5f5f5; padding: 20px; }";
-  html += ".invoice-container { max-width: 800px; margin: 40px auto; background-color: #fff; padding: 40px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-radius: 12px; }";
-  html += ".invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }";
-  html += ".invoice-header img { width: 50px; height: 50px; margin-left: 10px; }";
+  html += ".invoice-container { max-width: 1000px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 12px; }";
+  html += ".invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }";
+  html += ".invoice-header img { width: 50px; height: 50px; }";
   html += ".invoice-header h1 { font-size: 30px; font-weight: 600;}";
   html += ".invoice-header p { font-size: 14px; color: #757575; }";
   html += ".invoice-number { font-size: 14px; color: #757575; }";
   html += ".invoice-number span { font-size: 24px; font-weight: 600; color: #4a90e2; }";
   html += ".invoice-date { text-align: right; font-size: 18px; color: #757575; margin-bottom: 20px; }";
-  html += ".invoice-info { display: flex; justify-content: space-between; margin-bottom: 40px; }";
+  html += ".invoice-info { display: flex; justify-content: space-between; margin-bottom: 20px; }";
   html += ".invoice-info div { flex: 1; margin-right: 20px; }";
   html += ".invoice-info div:last-child { margin-right: 0; }";
   html += ".invoice-info p { font-size: 14px; line-height: 1.6; }";
   html += ".invoice-info p strong { font-weight: 600; color: #4a90e2; }";
-  html += ".invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }";
+  html += ".invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }";
   html += ".invoice-table th, .invoice-table td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }";
   html += ".invoice-table th { background-color: #f8f9fa; font-weight: 600; }";
   html += ".invoice-table tr:nth-child(even) { background-color: #f9f9f9; }";
-  html += ".invoice-total { display: flex; flex-direction: column; align-items: flex-end; font-size: 18px; font-weight: 600; margin-bottom: 30px; color: #333; }";
+  html += ".invoice-total { display: flex; flex-direction: column; align-items: flex-end; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #333; }";
   html += ".invoice-total div { margin-bottom: 10px; }";
   html += ".invoice-total span { margin-left: 15px; }";
   html += ".invoice-footer { text-align: center; font-size: 14px; color: #666; }";
   html += ".btn { display: inline-block; padding: 12px 25px; font-size: 14px; font-weight: 600; border-radius: 8px; text-decoration: none; transition: all 0.3s ease; margin-right: 10px; }";
   html += ".btn-print { background-color: #4a90e2; color: #fff; }";
-  html += ".btn-print:hover { background-color: #3a7bc8; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2); }";
   html += ".btn-back { background-color: #6c757d; color: #fff; }";
-  html += ".btn-back:hover { background-color: #495057; box-shadow: 0 4px 10px rgba(108, 117, 125, 0.2); }";
   html += ".invoice-footer p { margin-top: 20px; font-size: 16px; color: #333; }";
   html += "@media (max-width: 768px) {";
-  html += "  .invoice-info { flex-direction: column; }";
-  html += "  .invoice-info div { margin-bottom: 20px; margin-right: 0; }";
+  html += "  .invoice-container { padding: 10px; }";
   html += "  .invoice-header { flex-direction: column; align-items: flex-start; }";
   html += "  .invoice-header h1 { margin-bottom: 10px; }";
-  html += "  .invoice-header p { margin-bottom: 10px; }";
-  html += "  .invoice-date { text-align: left; margin-bottom: 10px; }";
+  html += "  .invoice-header img { margin-bottom: 10px; }";
+  html += "  .invoice-info { flex-direction: column; align-items: flex-start; }";
+  html += "  .invoice-info div { margin-bottom: 10px; }";
   html += "  .invoice-table th, .invoice-table td { padding: 10px; }";
-  html += "  .invoice-total { align-items: center; }";
+  html += "  .invoice-total { align-items: flex-start; }";
   html += "  .invoice-total div { margin-bottom: 5px; }";
   html += "}";
   html += "</style></head><body>";
@@ -777,7 +771,6 @@ void handleBill() {
   html += "<div class='invoice-header'>";
   html += "<div>";
   html += "<p class='invoice-number'><span>Invoice</span> #";
-
   DynamicJsonDocument doc(2048);
   DeserializationError error = deserializeJson(doc, billDetails);
 
@@ -828,9 +821,9 @@ void handleBill() {
       html += "<tr>";
       html += "<td>" + product["name"].as<String>() + "</td>";
       html += "<td>" + String(product["quantity"].as<int>()) + "</td>";
-      html += "<td>$" + String(product["price"].as<float>(), 2) + "</td>";
+      html += "<td>₹" + String(product["price"].as<float>(), 2) + "</td>";
       float productTotal = product["quantity"].as<int>() * product["price"].as<float>();
-      html += "<td>$" + String(productTotal, 2) + "</td>";
+      html += "<td>₹" + String(productTotal, 2) + "</td>";
       html += "</tr>";
       totalAmount += productTotal;
     }
@@ -838,20 +831,19 @@ void handleBill() {
     html += "</tbody></table>";
 
     html += "<div class='invoice-total'>";
-    html += "<div><p><strong>Subtotal:</strong> <span>$" + String(totalAmount, 2) + "</span></p></div>";
-    html += "<div><p><strong>GST (18%):</strong> <span>$" + String(totalAmount * 0.18, 2) + "</span></p></div>";
-    html += "<div><p><strong>Total:</strong> <span>$" + String(totalAmount * 1.18, 2) + "</span></p></div>";
+    html += "<div><p><strong>Subtotal:</strong> <span>₹" + String(totalAmount, 2) + "</span></p></div>";
+    html += "<div><p><strong>GST (18%):</strong> <span>₹" + String(totalAmount * 0.18, 2) + "</span></p></div>";
+    html += "<div><p><strong>Total:</strong> <span>₹" + String(totalAmount * 1.18, 2) + "</span></p></div>";
     html += "</div>";
 
     html += "<div class='invoice-footer'>";
     html += "<a href='#' class='btn btn-print' onclick='window.print()'>Print</a>";
     html += "<a href='/' class='btn btn-back'>Back to Home</a>";
-    html += "<p>Thank you for your business!</p>";
+    html += "<p>Thank you for shopping!</p>";
     html += "</div>";
   }
 
   html += "</div></body></html>";
-
   server.send(200, "text/html", html);
 
   // Clear the bill details after displaying the bill
